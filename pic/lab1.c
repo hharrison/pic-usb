@@ -622,31 +622,18 @@ void ProcessInToken(void) {
 		BD1I.status = 0x80;		// send packet as DATA1, set UOWN bit
 		break;
 	case EP2:
-		break;
 	case EP3:
-		break;
 	case EP4:
-		break;
 	case EP5:
-		break;
 	case EP6:
-		break;
 	case EP7:
-		break;
 	case EP8:
-		break;
 	case EP9:
-		break;
 	case EP10:
-		break;
 	case EP11:
-		break;
 	case EP12:
-		break;
 	case EP13:
-		break;
 	case EP14:
-		break;
 	case EP15:
 		break;
 	}
@@ -667,31 +654,18 @@ void ProcessOutToken(void) {
 		BD0I.status = 0x80;	
 		break;
 	case EP2:
-		break;
 	case EP3:
-		break;
 	case EP4:
-		break;
 	case EP5:
-		break;
 	case EP6:
-		break;
 	case EP7:
-		break;
 	case EP8:
-		break;
 	case EP9:
-		break;
 	case EP10:
-		break;
 	case EP11:
-		break;
 	case EP12:
-		break;
 	case EP13:
-		break;
 	case EP14:
-		break;
 	case EP15:
 		break;
 	}

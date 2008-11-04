@@ -552,12 +552,12 @@ void StandardRequests(void) {
 		case CONFIG_STATE:
 			if (USB_buffer_data[wIndex]<NUM_INTERFACES) {
 				switch (USB_buffer_data[wValue]) {
-					case 0:		// currently support only bAlternateSetting of 0
-						BD0I.bytecount = 0x00;		// set EP0 IN byte count to 0
-						BD0I.status = 0xC8;		// send packet as DATA1, set UOWN bit
-						break;
-					default:
-						USB_error_flags |= 0x01;	// set Request Error Flag
+				case 0:		// currently support only bAlternateSetting of 0
+					BD0I.bytecount = 0x00;		// set EP0 IN byte count to 0
+					BD0I.status = 0xC8;		// send packet as DATA1, set UOWN bit
+					break;
+				default:
+					USB_error_flags |= 0x01;	// set Request Error Flag
 				}
 			} else {
 				USB_error_flags |= 0x01;	// set Request Error Flag
@@ -576,8 +576,8 @@ void StandardRequests(void) {
 
 void ClassRequests(void) {
 	switch (USB_buffer_data[bRequest]) {
-		default:
-			USB_error_flags |= 0x01;	// set Request Error Flag
+	default:
+		USB_error_flags |= 0x01;	// set Request Error Flag
 	}
 }
 
@@ -604,11 +604,11 @@ void ProcessInToken(void) {
 		switch (USB_dev_req) {
 		case SET_ADDRESS:
 			switch (UADDR = USB_address_pending) {
-				case 0:
-					USB_USWSTAT = DEFAULT_STATE;
-					break;
-				default:
-					USB_USWSTAT = ADDRESS_STATE;
+			case 0:
+				USB_USWSTAT = DEFAULT_STATE;
+				break;
+			default:
+				USB_USWSTAT = ADDRESS_STATE;
 			}
 			break;
 		case GET_DESCRIPTOR:
@@ -682,11 +682,12 @@ void SendDescriptorPacket(void) {
 		USB_packet_length = MAX_PACKET_SIZE;
 		USB_bytes_left -= MAX_PACKET_SIZE;
 	}
-	for (n = 0; n<USB_packet_length; n++) {
+	for (n = 0; n < USB_packet_length; n++) {
 		BD0I.address[n] = *USB_desc_ptr++;
 	}
 	BD0I.bytecount = USB_packet_length;
-	BD0I.status = ((BD0I.status^0x40)&0x40)|0x88; // toggle the DATA01 bit, clear the PIDs bits, and set the UOWN and DTS bits
+	// toggle the DATA01 bit, clear the PIDs bits, and set the UOWN and DTS bits
+	BD0I.status = ((BD0I.status ^ 0x40) & 0x40) | 0x88;
 }
 
 void main(void) {
@@ -694,10 +695,8 @@ void main(void) {
 	ADCON1 = 0x0F;		// set up PORTA to be digital I/Os
 	TRISA = 0x00;			// set up all PORTA pins to be digital outputs
 
-	
-	 
 	InitUSB();			// initialize the USB registers and serial interface engine
-	while (USB_USWSTAT!=CONFIG_STATE) {		// while the peripheral is not configured...
+	while (USB_USWSTAT != CONFIG_STATE) {		// while the peripheral is not configured...
 		ServiceUSB();						// ...service USB requests
 	}
 

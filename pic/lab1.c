@@ -204,6 +204,27 @@ void InitUSB(void) {
 	while (UCONbits.SE0);		// wait for the first SE0 to end
 }
 
+/*
+ * Clear all EP control registers except for EP0 to disable EP1-EP15
+ */
+static void disableUEP(void) {
+	UEP1 = 0x00;
+	UEP2 = 0x00;
+	UEP3 = 0x00;
+	UEP4 = 0x00;
+	UEP5 = 0x00;
+	UEP6 = 0x00;
+	UEP7 = 0x00;
+	UEP8 = 0x00;
+	UEP9 = 0x00;
+	UEP10 = 0x00;
+	UEP11 = 0x00;
+	UEP12 = 0x00;
+	UEP13 = 0x00;
+	UEP14 = 0x00;
+	UEP15 = 0x00;
+}
+
 void ServiceUSB(void) {
 	__data BUFDESC *buf_desc_ptr;
 
@@ -225,23 +246,10 @@ void ServiceUSB(void) {
 		UIRbits.TRNIF = 0;
 		UIRbits.TRNIF = 0;
 		UIRbits.TRNIF = 0;
-		UEP0 = 0x00;				// clear all EP control registers to disable all endpoints
-		UEP1 = 0x00;
-		UEP2 = 0x00;
-		UEP3 = 0x00;
-		UEP4 = 0x00;
-		UEP5 = 0x00;
-		UEP6 = 0x00;
-		UEP7 = 0x00;
-		UEP8 = 0x00;
-		UEP9 = 0x00;
-		UEP10 = 0x00;
-		UEP11 = 0x00;
-		UEP12 = 0x00;
-		UEP13 = 0x00;
-		UEP14 = 0x00;
-		UEP15 = 0x00;
-		
+		/* disable all endpoints before resetting buffers */
+		UEP0 = 0x00;
+		disableUEP();
+
 		BD0O.bytecount = MAX_PACKET_SIZE;
 		BD0O.address = EP0_OUT_buffer;	// EP0 OUT gets a buffer
 		BD0O.status = 0x88;		// set UOWN bit (USB can write)
@@ -504,21 +512,7 @@ void StandardRequests(void) {
 		break;
 	case SET_CONFIGURATION:
 		if (USB_buffer_data[wValue]<=NUM_CONFIGURATIONS) {
-			UEP1 = 0x00;	// clear all EP control registers except for EP0 to disable EP1-EP15 prior to setting configuration
-			UEP2 = 0x00;
-			UEP3 = 0x00;
-			UEP4 = 0x00;
-			UEP5 = 0x00;
-			UEP6 = 0x00;
-			UEP7 = 0x00;
-			UEP8 = 0x00;
-			UEP9 = 0x00;
-			UEP10 = 0x00;
-			UEP11 = 0x00;
-			UEP12 = 0x00;
-			UEP13 = 0x00;
-			UEP14 = 0x00;
-			UEP15 = 0x00;
+			disableUEP();
 			switch (USB_curr_config = USB_buffer_data[wValue]) {
 			case 0:
 				USB_USWSTAT = ADDRESS_STATE;

@@ -270,14 +270,14 @@ void ServiceUSB(void) {
 		UIRbits.TRNIF = 0;		// clear TRNIF interrupt flag
 		USB_error_flags = 0x00;	// clear USB error flags
 		switch (USB_buffer_desc.status&0x3C) {	// extract PID bits
-			case TOKEN_SETUP:
-				ProcessSetupToken();
-				break;
-			case TOKEN_IN:
-				ProcessInToken();
-				break;
-			case TOKEN_OUT:
-				ProcessOutToken();
+		case TOKEN_SETUP:
+			ProcessSetupToken();
+			break;
+		case TOKEN_IN:
+			ProcessInToken();
+			break;
+		case TOKEN_OUT:
+			ProcessOutToken();
 		}
 		if (USB_error_flags&0x01) {		// if there was a Request Error...
 			BD0O.bytecount = MAX_PACKET_SIZE;	// ...get ready to receive the next Setup token...
@@ -299,17 +299,17 @@ void ProcessSetupToken(void) {
 	UCONbits.PKTDIS = 0;			// assuming there is nothing to dequeue, clear the packet disable bit
 	USB_dev_req = NO_REQUEST;		// clear the device request in process
 	switch (USB_buffer_data[bmRequestType]&0x60) {	// extract request type bits
-		case STANDARD:
-			StandardRequests();
-			break;
-		case CLASS:
-			ClassRequests();
-			break;
-		case VENDOR:
-			VendorRequests();
-			break;
-		default:
-			USB_error_flags |= 0x01;	// set Request Error Flag
+	case STANDARD:
+		StandardRequests();
+		break;
+	case CLASS:
+		ClassRequests();
+		break;
+	case VENDOR:
+		VendorRequests();
+		break;
+	default:
+		USB_error_flags |= 0x01;	// set Request Error Flag
 	}
 }
 
@@ -319,258 +319,258 @@ void StandardRequests(void) {
 	BUFDESC *buf_desc_ptr;
 
 	switch (USB_buffer_data[bRequest]) {
-		case GET_STATUS:
-			switch (USB_buffer_data[bmRequestType]&0x1F) {	// extract request recipient bits
-				case RECIPIENT_DEVICE:
-					BD0I.address[0] = USB_device_status;
+	case GET_STATUS:
+		switch (USB_buffer_data[bmRequestType]&0x1F) {	// extract request recipient bits
+		case RECIPIENT_DEVICE:
+			BD0I.address[0] = USB_device_status;
+			BD0I.address[1] = 0x00;
+			BD0I.bytecount = 0x02;
+			BD0I.status = 0xC8;		// send packet as DATA1, set UOWN bit
+			break;
+		case RECIPIENT_INTERFACE:
+			switch (USB_USWSTAT) {
+			case ADDRESS_STATE:
+				USB_error_flags |= 0x01;	// set Request Error Flag
+				break;
+			case CONFIG_STATE:
+				if (USB_buffer_data[wIndex]<NUM_INTERFACES) {
+					BD0I.address[0] = 0x00;
 					BD0I.address[1] = 0x00;
 					BD0I.bytecount = 0x02;
 					BD0I.status = 0xC8;		// send packet as DATA1, set UOWN bit
-					break;
-				case RECIPIENT_INTERFACE:
-					switch (USB_USWSTAT) {
-						case ADDRESS_STATE:
-							USB_error_flags |= 0x01;	// set Request Error Flag
-							break;
-						case CONFIG_STATE:
-							if (USB_buffer_data[wIndex]<NUM_INTERFACES) {
-								BD0I.address[0] = 0x00;
-								BD0I.address[1] = 0x00;
-								BD0I.bytecount = 0x02;
-								BD0I.status = 0xC8;		// send packet as DATA1, set UOWN bit
-							} else {
-								USB_error_flags |= 0x01;	// set Request Error Flag
-							}
-					}
-					break;
-				case RECIPIENT_ENDPOINT:
-					switch (USB_USWSTAT) {
-						case ADDRESS_STATE:
-							if (!(USB_buffer_data[wIndex]&0x0F)) {	// get EP, strip off direction bit and see if it is EP0
-								BD0I.address[0] = (((USB_buffer_data[wIndex]&0x80) ? BD0I.status:BD0O.status)&0x04)>>2;	// return the BSTALL bit of EP0 IN or OUT, whichever was requested
-								BD0I.address[1] = 0x00;
-								BD0I.bytecount = 0x02;
-								BD0I.status = 0xC8;		// send packet as DATA1, set UOWN bit
-							} else {
-								USB_error_flags |= 0x01;	// set Request Error Flag
-							}
-							break;
-						case CONFIG_STATE:
-							UEP = (unsigned char *)&UEP0;
-							n = USB_buffer_data[wIndex]&0x0F;	// get EP and strip off direction bit for offset from UEP0
-							buf_desc_ptr = &BD0O+((n<<1)|((USB_buffer_data[wIndex]&0x80) ? 0x01:0x00));	// compute pointer to the buffer descriptor for the specified EP
-							if (UEP[n]&((USB_buffer_data[wIndex]&0x80) ? 0x02:0x04)) { // if the specified EP is enabled for transfers in the specified direction...
-								BD0I.address[0] = ((buf_desc_ptr->status)&0x04)>>2;	// ...return the BSTALL bit of the specified EP
-								BD0I.address[1] = 0x00;
-								BD0I.bytecount = 0x02;
-								BD0I.status = 0xC8;		// send packet as DATA1, set UOWN bit
-							} else {
-								USB_error_flags |= 0x01;	// set Request Error Flag
-							}
-							break;
-						default:
-							USB_error_flags |= 0x01;	// set Request Error Flag
-					}
-					break;
-				default:
+				} else {
 					USB_error_flags |= 0x01;	// set Request Error Flag
-			}
-			break;
-		case CLEAR_FEATURE:
-		case SET_FEATURE:
-			switch (USB_buffer_data[bmRequestType]&0x1F) {	// extract request recipient bits
-				case RECIPIENT_DEVICE:
-					switch (USB_buffer_data[wValue]) {
-						case DEVICE_REMOTE_WAKEUP:
-							if (USB_buffer_data[bRequest]==CLEAR_FEATURE)
-								USB_device_status &= 0xFE;
-							else
-								USB_device_status |= 0x01;
-							BD0I.bytecount = 0x00;		// set EP0 IN byte count to 0
-							BD0I.status = 0xC8;		// send packet as DATA1, set UOWN bit
-							break;
-						default:
-							USB_error_flags |= 0x01;	// set Request Error Flag
-					}
-					break;
-				case RECIPIENT_ENDPOINT:
-					switch (USB_USWSTAT) {
-						case ADDRESS_STATE:
-							if (!(USB_buffer_data[wIndex]&0x0F)) {	// get EP, strip off direction bit, and see if its EP0
-								BD0I.bytecount = 0x00;		// set EP0 IN byte count to 0
-								BD0I.status = 0xC8;		// send packet as DATA1, set UOWN bit
-							} else {
-								USB_error_flags |= 0x01;	// set Request Error Flag
-							}
-							break;
-						case CONFIG_STATE:
-							UEP = (unsigned char *)&UEP0;
-							if (n = USB_buffer_data[wIndex]&0x0F) {	// get EP and strip off direction bit for offset from UEP0, if not EP0...
-								buf_desc_ptr = &BD0O+((n<<1)|((USB_buffer_data[wIndex]&0x80) ? 0x01:0x00));	// compute pointer to the buffer descriptor for the specified EP
-								if (USB_buffer_data[wIndex]&0x80) {	// if the specified EP direction is IN...
-									if (UEP[n]&0x02) {	// if EPn is enabled for IN transfers...
-										buf_desc_ptr->status = (USB_buffer_data[bRequest]==CLEAR_FEATURE) ? 0x00:0x84;
-									} else {
-										USB_error_flags |= 0x01;	// set Request Error Flag									
-									}
-								} else {	// ...otherwise the specified EP direction is OUT, so...
-									if (UEP[n]&0x04) {	// if EPn is enabled for OUT transfers...
-										buf_desc_ptr->status = (USB_buffer_data[bRequest]==CLEAR_FEATURE) ? 0x88:0x84;
-									} else {
-										USB_error_flags |= 0x01;	// set Request Error Flag									
-									}
-								}
-							}
-							if (!(USB_error_flags&0x01)) {	// if there was no Request Error...
-								BD0I.bytecount = 0x00;
-								BD0I.status = 0xC8;		// ...send packet as DATA1, set UOWN bit
-							}
-							break;
-						default:
-							USB_error_flags |= 0x01;	// set Request Error Flag
-					}
-					break;
-				default:
-					USB_error_flags |= 0x01;	// set Request Error Flag
-			}
-			break;
-		case SET_ADDRESS:
-			if (USB_buffer_data[wValue]>0x7F) {	// if new device address is illegal, send Request Error
-				USB_error_flags |= 0x01;	// set Request Error Flag
-			} else {
-				USB_dev_req = SET_ADDRESS;	// processing a SET_ADDRESS request
-				USB_address_pending = USB_buffer_data[wValue];	// save new address
-				BD0I.bytecount = 0x00;		// set EP0 IN byte count to 0
-				BD0I.status = 0xC8;		// send packet as DATA1, set UOWN bit
-			}
-			break;
-		case GET_DESCRIPTOR:
-			USB_dev_req = GET_DESCRIPTOR;	// processing a GET_DESCRIPTOR request
-			switch (USB_buffer_data[wValueHigh]) {
-				case DEVICE:
-					USB_desc_ptr = Device;
-					USB_bytes_left = USB_desc_ptr[0];
-					if ((USB_buffer_data[wLengthHigh]==0x00) && (USB_buffer_data[wLength]<USB_bytes_left)) {
-						USB_bytes_left = USB_buffer_data[wLength];
-					}
-					SendDescriptorPacket();
-					break;
-				case CONFIGURATION:
-					switch (USB_buffer_data[wValue]) {
-						case 0:
-							USB_desc_ptr = Configuration1;
-							break;
-						default:
-							USB_error_flags |= 0x01;	// set Request Error Flag
-					}
-					if (!(USB_error_flags&0x01)) {
-						USB_bytes_left = USB_desc_ptr[2];	// wTotalLength at an offset of 2
-						if ((USB_buffer_data[wLengthHigh]==0x00) && (USB_buffer_data[wLength]<USB_bytes_left)) {
-							USB_bytes_left = USB_buffer_data[wLength];
-						}
-						SendDescriptorPacket();
-					}
-					break;
-				case STRING:
-					switch (USB_buffer_data[wValue]) {
-						case 0:
-							USB_desc_ptr = String0;
-							break;
-						case 1:
-							USB_desc_ptr = String1;
-							break;
-						case 2:
-							USB_desc_ptr = String2;
-							break;
-						default:
-							USB_error_flags |= 0x01;	// set Request Error Flag
-					}
-					if (!(USB_error_flags&0x01)) {
-						USB_bytes_left = USB_desc_ptr[0];
-						if ((USB_buffer_data[wLengthHigh]==0x00) && (USB_buffer_data[wLength]<USB_bytes_left)) {
-							USB_bytes_left = USB_buffer_data[wLength];
-						}
-						SendDescriptorPacket();
-					}
-					break;
-				default:
-					USB_error_flags |= 0x01;	// set Request Error Flag
-			}
-			break;
-		case GET_CONFIGURATION:
-			BD0I.address[0] = USB_curr_config;	// copy current device configuration to EP0 IN buffer
-			BD0I.bytecount = 0x01;
-			BD0I.status = 0xC8;		// send packet as DATA1, set UOWN bit
-			break;
-		case SET_CONFIGURATION:
-			if (USB_buffer_data[wValue]<=NUM_CONFIGURATIONS) {
-				UEP1 = 0x00;	// clear all EP control registers except for EP0 to disable EP1-EP15 prior to setting configuration
-				UEP2 = 0x00;
-				UEP3 = 0x00;
-				UEP4 = 0x00;
-				UEP5 = 0x00;
-				UEP6 = 0x00;
-				UEP7 = 0x00;
-				UEP8 = 0x00;
-				UEP9 = 0x00;
-				UEP10 = 0x00;
-				UEP11 = 0x00;
-				UEP12 = 0x00;
-				UEP13 = 0x00;
-				UEP14 = 0x00;
-				UEP15 = 0x00;
-				switch (USB_curr_config = USB_buffer_data[wValue]) {
-					case 0:
-						USB_USWSTAT = ADDRESS_STATE;
-						break;
-					default:
-						USB_USWSTAT = CONFIG_STATE;
 				}
-				BD0I.bytecount = 0x00;		// set EP0 IN byte count to 0
-				BD0I.status = 0xC8;		// send packet as DATA1, set UOWN bit
-			} else {
+			}
+			break;
+		case RECIPIENT_ENDPOINT:
+			switch (USB_USWSTAT) {
+			case ADDRESS_STATE:
+				if (!(USB_buffer_data[wIndex]&0x0F)) {	// get EP, strip off direction bit and see if it is EP0
+					BD0I.address[0] = (((USB_buffer_data[wIndex]&0x80) ? BD0I.status:BD0O.status)&0x04)>>2;	// return the BSTALL bit of EP0 IN or OUT, whichever was requested
+					BD0I.address[1] = 0x00;
+					BD0I.bytecount = 0x02;
+					BD0I.status = 0xC8;		// send packet as DATA1, set UOWN bit
+				} else {
+					USB_error_flags |= 0x01;	// set Request Error Flag
+				}
+				break;
+			case CONFIG_STATE:
+				UEP = (unsigned char *)&UEP0;
+				n = USB_buffer_data[wIndex]&0x0F;	// get EP and strip off direction bit for offset from UEP0
+				buf_desc_ptr = &BD0O+((n<<1)|((USB_buffer_data[wIndex]&0x80) ? 0x01:0x00));	// compute pointer to the buffer descriptor for the specified EP
+				if (UEP[n]&((USB_buffer_data[wIndex]&0x80) ? 0x02:0x04)) { // if the specified EP is enabled for transfers in the specified direction...
+					BD0I.address[0] = ((buf_desc_ptr->status)&0x04)>>2;	// ...return the BSTALL bit of the specified EP
+					BD0I.address[1] = 0x00;
+					BD0I.bytecount = 0x02;
+					BD0I.status = 0xC8;		// send packet as DATA1, set UOWN bit
+				} else {
+					USB_error_flags |= 0x01;	// set Request Error Flag
+				}
+				break;
+			default:
 				USB_error_flags |= 0x01;	// set Request Error Flag
 			}
 			break;
-		case GET_INTERFACE:
-			switch (USB_USWSTAT) {
-				case CONFIG_STATE:
-					if (USB_buffer_data[wIndex]<NUM_INTERFACES) {
-						BD0I.address[0] = 0x00;	// always send back 0 for bAlternateSetting
-						BD0I.bytecount = 0x01;
-						BD0I.status = 0xC8;		// send packet as DATA1, set UOWN bit
-					} else {
-						USB_error_flags |= 0x01;	// set Request Error Flag
-					}
-					break;
-				default:
-					USB_error_flags |= 0x01;	// set Request Error Flag
-			}
-			break;
-		case SET_INTERFACE:
-			switch (USB_USWSTAT) {
-				case CONFIG_STATE:
-					if (USB_buffer_data[wIndex]<NUM_INTERFACES) {
-						switch (USB_buffer_data[wValue]) {
-							case 0:		// currently support only bAlternateSetting of 0
-								BD0I.bytecount = 0x00;		// set EP0 IN byte count to 0
-								BD0I.status = 0xC8;		// send packet as DATA1, set UOWN bit
-								break;
-							default:
-								USB_error_flags |= 0x01;	// set Request Error Flag
-						}
-					} else {
-						USB_error_flags |= 0x01;	// set Request Error Flag
-					}
-					break;
-				default:
-					USB_error_flags |= 0x01;	// set Request Error Flag
-			}
-			break;
-		case SET_DESCRIPTOR:
-		case SYNCH_FRAME:
 		default:
 			USB_error_flags |= 0x01;	// set Request Error Flag
+		}
+		break;
+	case CLEAR_FEATURE:
+	case SET_FEATURE:
+		switch (USB_buffer_data[bmRequestType]&0x1F) {	// extract request recipient bits
+		case RECIPIENT_DEVICE:
+			switch (USB_buffer_data[wValue]) {
+			case DEVICE_REMOTE_WAKEUP:
+				if (USB_buffer_data[bRequest]==CLEAR_FEATURE)
+					USB_device_status &= 0xFE;
+				else
+					USB_device_status |= 0x01;
+				BD0I.bytecount = 0x00;		// set EP0 IN byte count to 0
+				BD0I.status = 0xC8;		// send packet as DATA1, set UOWN bit
+				break;
+			default:
+				USB_error_flags |= 0x01;	// set Request Error Flag
+			}
+			break;
+		case RECIPIENT_ENDPOINT:
+			switch (USB_USWSTAT) {
+			case ADDRESS_STATE:
+				if (!(USB_buffer_data[wIndex]&0x0F)) {	// get EP, strip off direction bit, and see if its EP0
+					BD0I.bytecount = 0x00;		// set EP0 IN byte count to 0
+					BD0I.status = 0xC8;		// send packet as DATA1, set UOWN bit
+				} else {
+					USB_error_flags |= 0x01;	// set Request Error Flag
+				}
+				break;
+			case CONFIG_STATE:
+				UEP = (unsigned char *)&UEP0;
+				if (n = USB_buffer_data[wIndex]&0x0F) {	// get EP and strip off direction bit for offset from UEP0, if not EP0...
+					buf_desc_ptr = &BD0O+((n<<1)|((USB_buffer_data[wIndex]&0x80) ? 0x01:0x00));	// compute pointer to the buffer descriptor for the specified EP
+					if (USB_buffer_data[wIndex]&0x80) {	// if the specified EP direction is IN...
+						if (UEP[n]&0x02) {	// if EPn is enabled for IN transfers...
+							buf_desc_ptr->status = (USB_buffer_data[bRequest]==CLEAR_FEATURE) ? 0x00:0x84;
+						} else {
+							USB_error_flags |= 0x01;	// set Request Error Flag									
+						}
+					} else {	// ...otherwise the specified EP direction is OUT, so...
+						if (UEP[n]&0x04) {	// if EPn is enabled for OUT transfers...
+							buf_desc_ptr->status = (USB_buffer_data[bRequest]==CLEAR_FEATURE) ? 0x88:0x84;
+						} else {
+							USB_error_flags |= 0x01;	// set Request Error Flag									
+						}
+					}
+				}
+				if (!(USB_error_flags&0x01)) {	// if there was no Request Error...
+					BD0I.bytecount = 0x00;
+					BD0I.status = 0xC8;		// ...send packet as DATA1, set UOWN bit
+				}
+				break;
+			default:
+				USB_error_flags |= 0x01;	// set Request Error Flag
+			}
+			break;
+		default:
+			USB_error_flags |= 0x01;	// set Request Error Flag
+		}
+		break;
+	case SET_ADDRESS:
+		if (USB_buffer_data[wValue]>0x7F) {	// if new device address is illegal, send Request Error
+			USB_error_flags |= 0x01;	// set Request Error Flag
+		} else {
+			USB_dev_req = SET_ADDRESS;	// processing a SET_ADDRESS request
+			USB_address_pending = USB_buffer_data[wValue];	// save new address
+			BD0I.bytecount = 0x00;		// set EP0 IN byte count to 0
+			BD0I.status = 0xC8;		// send packet as DATA1, set UOWN bit
+		}
+		break;
+	case GET_DESCRIPTOR:
+		USB_dev_req = GET_DESCRIPTOR;	// processing a GET_DESCRIPTOR request
+		switch (USB_buffer_data[wValueHigh]) {
+		case DEVICE:
+			USB_desc_ptr = Device;
+			USB_bytes_left = USB_desc_ptr[0];
+			if ((USB_buffer_data[wLengthHigh]==0x00) && (USB_buffer_data[wLength]<USB_bytes_left)) {
+				USB_bytes_left = USB_buffer_data[wLength];
+			}
+			SendDescriptorPacket();
+			break;
+		case CONFIGURATION:
+			switch (USB_buffer_data[wValue]) {
+			case 0:
+				USB_desc_ptr = Configuration1;
+				break;
+			default:
+				USB_error_flags |= 0x01;	// set Request Error Flag
+			}
+			if (!(USB_error_flags&0x01)) {
+				USB_bytes_left = USB_desc_ptr[2];	// wTotalLength at an offset of 2
+				if ((USB_buffer_data[wLengthHigh]==0x00) && (USB_buffer_data[wLength]<USB_bytes_left)) {
+					USB_bytes_left = USB_buffer_data[wLength];
+				}
+				SendDescriptorPacket();
+			}
+			break;
+		case STRING:
+			switch (USB_buffer_data[wValue]) {
+			case 0:
+				USB_desc_ptr = String0;
+				break;
+			case 1:
+				USB_desc_ptr = String1;
+				break;
+			case 2:
+				USB_desc_ptr = String2;
+				break;
+			default:
+				USB_error_flags |= 0x01;	// set Request Error Flag
+			}
+			if (!(USB_error_flags&0x01)) {
+				USB_bytes_left = USB_desc_ptr[0];
+				if ((USB_buffer_data[wLengthHigh]==0x00) && (USB_buffer_data[wLength]<USB_bytes_left)) {
+					USB_bytes_left = USB_buffer_data[wLength];
+				}
+				SendDescriptorPacket();
+			}
+			break;
+		default:
+			USB_error_flags |= 0x01;	// set Request Error Flag
+		}
+		break;
+	case GET_CONFIGURATION:
+		BD0I.address[0] = USB_curr_config;	// copy current device configuration to EP0 IN buffer
+		BD0I.bytecount = 0x01;
+		BD0I.status = 0xC8;		// send packet as DATA1, set UOWN bit
+		break;
+	case SET_CONFIGURATION:
+		if (USB_buffer_data[wValue]<=NUM_CONFIGURATIONS) {
+			UEP1 = 0x00;	// clear all EP control registers except for EP0 to disable EP1-EP15 prior to setting configuration
+			UEP2 = 0x00;
+			UEP3 = 0x00;
+			UEP4 = 0x00;
+			UEP5 = 0x00;
+			UEP6 = 0x00;
+			UEP7 = 0x00;
+			UEP8 = 0x00;
+			UEP9 = 0x00;
+			UEP10 = 0x00;
+			UEP11 = 0x00;
+			UEP12 = 0x00;
+			UEP13 = 0x00;
+			UEP14 = 0x00;
+			UEP15 = 0x00;
+			switch (USB_curr_config = USB_buffer_data[wValue]) {
+			case 0:
+				USB_USWSTAT = ADDRESS_STATE;
+				break;
+			default:
+				USB_USWSTAT = CONFIG_STATE;
+			}
+			BD0I.bytecount = 0x00;		// set EP0 IN byte count to 0
+			BD0I.status = 0xC8;		// send packet as DATA1, set UOWN bit
+		} else {
+			USB_error_flags |= 0x01;	// set Request Error Flag
+		}
+		break;
+	case GET_INTERFACE:
+		switch (USB_USWSTAT) {
+		case CONFIG_STATE:
+			if (USB_buffer_data[wIndex]<NUM_INTERFACES) {
+				BD0I.address[0] = 0x00;	// always send back 0 for bAlternateSetting
+				BD0I.bytecount = 0x01;
+				BD0I.status = 0xC8;		// send packet as DATA1, set UOWN bit
+			} else {
+				USB_error_flags |= 0x01;	// set Request Error Flag
+			}
+			break;
+		default:
+			USB_error_flags |= 0x01;	// set Request Error Flag
+		}
+		break;
+	case SET_INTERFACE:
+		switch (USB_USWSTAT) {
+		case CONFIG_STATE:
+			if (USB_buffer_data[wIndex]<NUM_INTERFACES) {
+				switch (USB_buffer_data[wValue]) {
+					case 0:		// currently support only bAlternateSetting of 0
+						BD0I.bytecount = 0x00;		// set EP0 IN byte count to 0
+						BD0I.status = 0xC8;		// send packet as DATA1, set UOWN bit
+						break;
+					default:
+						USB_error_flags |= 0x01;	// set Request Error Flag
+				}
+			} else {
+				USB_error_flags |= 0x01;	// set Request Error Flag
+			}
+			break;
+		default:
+			USB_error_flags |= 0x01;	// set Request Error Flag
+		}
+		break;
+	case SET_DESCRIPTOR:
+	case SYNCH_FRAME:
+	default:
+		USB_error_flags |= 0x01;	// set Request Error Flag
 	}
 }
 
@@ -583,117 +583,117 @@ void ClassRequests(void) {
 
 void VendorRequests(void) {
 	switch (USB_buffer_data[bRequest]) {
-		case SET_RA0:
-			PORTAbits.RA0 = 1;		// set RA0 high
-			BD0I.bytecount = 0x00;		// set EP0 IN byte count to 0
-			BD0I.status = 0xC8;		// send packet as DATA1, set UOWN bit
-			break;
-		case CLR_RA0:
-			PORTAbits.RA0 = 0;		// set RA0 low
-			BD0I.bytecount = 0x00;		// set EP0 IN byte count to 0
-			BD0I.status = 0xC8;		// send packet as DATA1, set UOWN bit
-			break;
-		default:
-			USB_error_flags |= 0x01;	// set Request Error Flag
+	case SET_RA0:
+		PORTAbits.RA0 = 1;		// set RA0 high
+		BD0I.bytecount = 0x00;		// set EP0 IN byte count to 0
+		BD0I.status = 0xC8;		// send packet as DATA1, set UOWN bit
+		break;
+	case CLR_RA0:
+		PORTAbits.RA0 = 0;		// set RA0 low
+		BD0I.bytecount = 0x00;		// set EP0 IN byte count to 0
+		BD0I.status = 0xC8;		// send packet as DATA1, set UOWN bit
+		break;
+	default:
+		USB_error_flags |= 0x01;	// set Request Error Flag
 	}
 }
 
 void ProcessInToken(void) {
 	switch (USB_USTAT&0x78) {	// extract the EP bits
-		case EP0:
-			switch (USB_dev_req) {
-				case SET_ADDRESS:
-					switch (UADDR = USB_address_pending) {
-						case 0:
-							USB_USWSTAT = DEFAULT_STATE;
-							break;
-						default:
-							USB_USWSTAT = ADDRESS_STATE;
-					}
+	case EP0:
+		switch (USB_dev_req) {
+		case SET_ADDRESS:
+			switch (UADDR = USB_address_pending) {
+				case 0:
+					USB_USWSTAT = DEFAULT_STATE;
 					break;
-				case GET_DESCRIPTOR:
-					SendDescriptorPacket();
-					break;
+				default:
+					USB_USWSTAT = ADDRESS_STATE;
 			}
 			break;
-		case EP1:
-			BD1I.address[0] = 0x55;
-			BD1I.bytecount = 0x01;		// set EP0 IN byte count to 0
-			BD1I.status = 0x80;		// send packet as DATA1, set UOWN bit
+		case GET_DESCRIPTOR:
+			SendDescriptorPacket();
 			break;
-		case EP2:
-			break;
-		case EP3:
-			break;
-		case EP4:
-			break;
-		case EP5:
-			break;
-		case EP6:
-			break;
-		case EP7:
-			break;
-		case EP8:
-			break;
-		case EP9:
-			break;
-		case EP10:
-			break;
-		case EP11:
-			break;
-		case EP12:
-			break;
-		case EP13:
-			break;
-		case EP14:
-			break;
-		case EP15:
-			break;
+		}
+		break;
+	case EP1:
+		BD1I.address[0] = 0x55;
+		BD1I.bytecount = 0x01;		// set EP0 IN byte count to 0
+		BD1I.status = 0x80;		// send packet as DATA1, set UOWN bit
+		break;
+	case EP2:
+		break;
+	case EP3:
+		break;
+	case EP4:
+		break;
+	case EP5:
+		break;
+	case EP6:
+		break;
+	case EP7:
+		break;
+	case EP8:
+		break;
+	case EP9:
+		break;
+	case EP10:
+		break;
+	case EP11:
+		break;
+	case EP12:
+		break;
+	case EP13:
+		break;
+	case EP14:
+		break;
+	case EP15:
+		break;
 	}
 }
 
 void ProcessOutToken(void) {
 	switch (USB_USTAT&0x78) {	// extract the EP bits
-		case EP0:
-			BD0O.bytecount = MAX_PACKET_SIZE;
-			BD0O.status = 0x88;
-			BD0I.bytecount = 0x00;		// set EP0 IN byte count to 0
-			BD0I.status = 0xC8;		// send packet as DATA1, set UOWN bit
-			break;
-		case EP1:
-			PORTB = BD1O.address[0];
-			BD1O.bytecount = MAX_PACKET_SIZE;
-			BD1O.status = 0x80;			BD0I.bytecount = 0x00;		// set EP0 IN byte count to 0
-			BD0I.status = 0x80;	
-			break;
-		case EP2:
-			break;
-		case EP3:
-			break;
-		case EP4:
-			break;
-		case EP5:
-			break;
-		case EP6:
-			break;
-		case EP7:
-			break;
-		case EP8:
-			break;
-		case EP9:
-			break;
-		case EP10:
-			break;
-		case EP11:
-			break;
-		case EP12:
-			break;
-		case EP13:
-			break;
-		case EP14:
-			break;
-		case EP15:
-			break;
+	case EP0:
+		BD0O.bytecount = MAX_PACKET_SIZE;
+		BD0O.status = 0x88;
+		BD0I.bytecount = 0x00;		// set EP0 IN byte count to 0
+		BD0I.status = 0xC8;		// send packet as DATA1, set UOWN bit
+		break;
+	case EP1:
+		PORTB = BD1O.address[0];
+		BD1O.bytecount = MAX_PACKET_SIZE;
+		BD1O.status = 0x80;		BD0I.bytecount = 0x00;		// set EP0 IN byte count to 0
+		BD0I.status = 0x80;	
+		break;
+	case EP2:
+		break;
+	case EP3:
+		break;
+	case EP4:
+		break;
+	case EP5:
+		break;
+	case EP6:
+		break;
+	case EP7:
+		break;
+	case EP8:
+		break;
+	case EP9:
+		break;
+	case EP10:
+		break;
+	case EP11:
+		break;
+	case EP12:
+		break;
+	case EP13:
+		break;
+	case EP14:
+		break;
+	case EP15:
+		break;
 	}
 }
 
